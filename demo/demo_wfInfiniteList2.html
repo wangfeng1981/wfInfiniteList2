@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0">
+
+<title>my directive 2</title>
+<script type="text/javascript" src="angular.js"></script>
+<script type="text/javascript" src="angular-animate.js"></script>
+<script type="text/javascript" src="../iscroll-infinite-wf2.js"></script>
+<script type="text/javascript" src="../wfInfiniteList2.js"></script>
+<script>
+  var app = angular.module('app1',['ngAnimate','Wangf']) ;
+  app.controller('controller1' , function($scope,$http,$timeout){
+    $scope.title = 'test my directive.' ;
+    $scope.datapool = new Array() ;
+    $scope.limit = 0 ;
+    $scope.pageSize = 30 ;
+    $scope.url1 = 'http://www.hihey.com/api2/all_artists.php' ;
+
+
+    $scope.scrollerDelegate = {} ;
+    $scope.scrollerDelegate.onNeedLoadMoreDataWF=function(scrollerRef,index)
+    {
+
+      var loadFrom = index ;
+
+      var biglen = $scope.datapool.length ;
+      var isAll = false ;
+
+      if( (loadFrom+ $scope.pageSize -1) >= biglen && 
+          ( biglen < $scope.limit || $scope.limit==0 ) )
+      {
+        loadFrom = biglen ;
+        var loadFromPage = parseInt(loadFrom/$scope.pageSize) + 1;
+        var url1 = $scope.url1+"?page="+loadFromPage+"&page_size="+
+                    $scope.pageSize+"&cb=JSON_CALLBACK" ;
+        $http.jsonp(url1)
+          .success(function(data){
+            $scope.limit = data.count ; 
+            var len1 = data.result.length ;
+            var start0 = (data.page-1)*$scope.pageSize ;
+            for(var i=0 ; i<len1 ; i++ )
+            {
+              $scope.datapool[start0+i] = data.result[i] ;
+            }
+            var newBigLen = $scope.datapool.length ;
+            if( newBigLen >= $scope.limit ) isAll = true ;
+            else isAll = false ;
+
+            var updateData = new Array() ;
+            for(var i = 0 ; i<len1 ; i++ )
+            {
+              if( start0+i >= newBigLen ) break ;
+              updateData[i] = $scope.datapool[start0+i] ;
+            }
+            scrollerRef.loadingMoreFinishedWF(true , start0 , len1 ,
+                                   updateData , newBigLen, isAll );
+          })
+          .error (function(){
+            console.log('jsonp failed.') ;
+            scrollerRef.loadingMoreFinishedWF(false , start0 , len1 ,
+                                   updateData , newBigLen, isAll );
+          });
+      }else
+      {
+        scrollerRef.loadingMoreFinishedWF(false , 0 , 0 ,
+                                   null , 0, isAll );
+      }
+    } ;
+
+    $scope.scrollerDelegate.onFillCellHtmlContentWF=function(el,index)
+    {
+      var data = $scope.datapool[index] ;
+      if( typeof(data)!== 'undefined')
+      {
+        var imageurl = 'http://www.hihey.com/'+data.image ;
+        if( data.image.indexOf('.jpg') == -1 && data.image.indexOf('.png') == -1 ) 
+        {
+          imageurl = 'a.jpg' ;
+        }
+        el.innerHTML = "<img src='"+
+        imageurl+"'><h3>"+data.name+
+        "</h3><p>作品数量："+data.count+"</p>" ;
+      }else
+      {
+        el.innerHTML = "<img src='img/photoloading.png'><h3>无效索引.</h3><p>作品数量：－</p>" ;
+      }
+    } ;
+
+    $scope.tapped=function(el)
+    {
+      if( typeof(el._phase) !== 'undefined' )
+        console.log(el._phase) ;
+      else
+      {
+        var par = el.parentNode;
+        if( typeof(par._phase) !== 'undefined' )
+          console.log(par._phase) ;
+      }
+    }
+  }) ;
+</script>
+
+<style type="text/css">
+.artistcell{
+  position: absolute;
+  top: 0px ;
+  left: 0px ;
+  border: 0px ;
+  border-bottom: 1px solid #d4d4d4 ;
+  margin: 0px ;
+  padding: 0px ;
+  padding-top: 9px ;
+  padding-left: 15px ;
+  width: 100% ;
+  height: 80px ;
+}
+.artistcell>img{
+  width: 57px ;
+  height: 57px ;
+  margin: 0px ;
+  padding: 0px ;
+  border-radius: 50% ;
+}
+.artistcell>h3{
+  position: absolute;
+  top:1px;
+  left: 93px ;
+  color: #151515 ;
+  font-size: 16px ;
+}
+.artistcell>p{
+  position: absolute;
+  top: 32px; 
+  left: 93px ;
+  color: #696969 ;
+  font-size: 12px ;
+}
+</style>
+
+</head>
+<body ng-app='app1' ng-controller='controller1'>
+<h1>{{title}}</h1>
+
+<wf-infinite-list2 
+  inf-element='.artistcell'  
+  delegate='scrollerDelegate'
+  load-more-offset='90'
+  page-size='30' >
+  <div class="wilContainer">
+    <!-- make layer lower and lower.-->
+    <div class="artistcell" style="z-index:50" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:49" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:48" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:47" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:46" ng-click="tapped($event.target)"></div>
+
+    <div class="artistcell" style="z-index:45" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:44" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:43" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:42" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:41" ng-click="tapped($event.target)"></div>
+
+    <div class="artistcell" style="z-index:40" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:39" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:38" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:37" ng-click="tapped($event.target)"></div>
+    <div class="artistcell" style="z-index:36" ng-click="tapped($event.target)"></div>
+  </div>
+</wf-infinite-list2>
+
+</body>
+</html>
