@@ -10,6 +10,10 @@
       history-position = int: 0
       load-more-offset = int: 80 , a gap from bottom to trigger load-more.
       page-size        = int: 30 , number of recs in each load.
+      wrapperId        = wrapperXXXX , wrapperId for <wf-infinite-list2> elementId.
+                          this string value should be unique in DOM 
+                          and must be the same as this elementId.
+                          e.g.  <wf-infinite-list2 id='w101' ... wrapper-id='w101'>  
     optional attrs:
       pulling-html     = 'pull to load more'
       release-html     = 'release for loading'
@@ -19,7 +23,11 @@
 
 
     !note1:
-      delegate must have these two methods:
+      delegate must have these 3 methods:
+        onScrollerReady(scrollerRef) 
+                  : on iscroll initialized.
+                    user can call scroller.loadingMoreBeginWF()
+                    to kick first loading action.
         onFillCellHtmlContentWF(element,index)
         onNeedLoadMoreDataWF(scrollerRef,index)
 
@@ -35,7 +43,7 @@ angular.module('Wangf',['ngAnimate'])
   .directive('wfInfiniteList2',function($http,$timeout){
     return {
       restrict:'E' ,
-      template:"<div id='wilWrapper2'"+
+      template:"<div"+
               " style='position:absolute;margin:0px;"+
               "padding:0px;width:100%;top:0px;left:0px;"+
               "bottom:0px;background-color:white;overflow:hidden;'"+
@@ -50,6 +58,7 @@ angular.module('Wangf',['ngAnimate'])
               loadMoreOffset:'@',pageSize:'@',
               historyLimit:'@',
               historyPosition:'@',
+              wrapperId:'@',
               pullingHtml:'@',
               releaseHtml:'@',
               loadingHtml:'@',
@@ -58,9 +67,10 @@ angular.module('Wangf',['ngAnimate'])
       link: function(scope , elem , attrs ){
 
           scope.pageSize = parseInt(scope.pageSize) ;
+          var tchild1= document.getElementById(scope.wrapperId).children[0];
 
-          //init iscroll5.
-          scope.scroller = new IScroll("#wilWrapper2",{
+          //init iscroll5. "#"+scope.wrapperId
+          scope.scroller = new IScroll(tchild1 ,{
             tap:true ,
             infiniteLimit: scope.historyLimit,
             historyPosition: scope.historyPosition,
@@ -82,10 +92,11 @@ angular.module('Wangf',['ngAnimate'])
             scope.scroller.reorderInfinite() ;
           }else
           {
+            scope.delegate.onScrollerReady(scope.scroller) ;
             //first load.
-            $timeout(function(){
+            /*$timeout(function(){
               scope.scroller.loadingMoreBeginWF() ;
-            },200) ;
+            },200) ;*/
           }
       } 
     } ;
