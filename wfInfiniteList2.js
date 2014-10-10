@@ -45,6 +45,11 @@
       to make scroller know more data can be displayed.
         scrollerRef.pushPullLoadingFinished:function(isOk, isAll )
 
+
+    ScrollerRef useful function:
+      ScrollerRef.setPullElementDisplay(boolValue) ;
+      boolValue = ScrollerRef.isPullElementDisplay() ;
+
 */
 angular.module('Wangf',['ngAnimate'])
   .directive('wfInfiniteList2',function($http,$timeout){
