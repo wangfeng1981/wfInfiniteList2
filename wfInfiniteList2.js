@@ -5,10 +5,9 @@
 
     <wf-infinite-list2 > 
     must have following attrs:
+      id               = unique string id.
       inf-element      = string:'.someCell'
       delegate         = object:delegateObject !note1
-      history-limit    = int: 0
-      history-position = int: 0
       page-size        = int: 30 , number of recs in each load.
       wrapper-parent-id        = wrapperXXXX , wrapperId for <wf-infinite-list2> elementId.
                           this string value should be unique in DOM 
@@ -46,9 +45,17 @@
         scrollerRef.pushPullLoadingFinished:function(isOk, isAll )
 
 
-    ScrollerRef useful function:
+    ScrollerRef useful functions:
       ScrollerRef.setPullElementDisplay(boolValue) ;
       boolValue = ScrollerRef.isPullElementDisplay() ;
+      ScrollerRef.pushLoadBegin() ;
+      ScrollerRef.pullLoadBegin() ;
+      sref.scrollTo(x,y) 
+      sref.refresh() ;
+
+    InfiniteElement useful properties:
+      element._phase : index in datasource.
+      element._top   : top position in scroller.
 
 */
 angular.module('Wangf',['ngAnimate'])
@@ -73,8 +80,6 @@ angular.module('Wangf',['ngAnimate'])
       scope:{
               infElement:'@',
               delegate:'=',
-              historyLimit:'@',
-              historyPosition:'@',
               pageSize:'@',
               wrapperParentId:'@',
 
@@ -98,8 +103,6 @@ angular.module('Wangf',['ngAnimate'])
             tap:true ,
             wrapperParentId:scope.wrapperParentId,
             delegate:scope.delegate , 
-            infiniteLimit:scope.historyLimit,
-            historyPosition: scope.historyPosition,
             infiniteElements:scope.infElement,
             cacheSize: scope.pageSize , 
             pushTriggerOffset:scope.pushTriggerOffset,
