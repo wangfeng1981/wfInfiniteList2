@@ -245,8 +245,36 @@ var utils = (function () {
 	return me;
 })();
 
-function IScroll (el, options) {
-	this.wrapper = typeof el == 'string' ? document.querySelector(el) : el;
+function IScroll (options) {
+
+
+
+
+
+
+	// add:
+
+	if( typeof(options.wrapperParentId) === 'undefined' )
+	{
+		console.log('error: wrapperParentId is undefined!') ;
+	}
+	this.wrapperParent = document.getElementById(options.wrapperParentId) ;
+	var wrapperElement = this.wrapperParent.children[0];
+	this.wrapper = wrapperElement ;
+
+	// end.
+
+
+
+
+
+
+
+
+
+
+
+	// rem this.wrapper = typeof el == 'string' ? document.querySelector(el) : el;
 	this.scroller = this.wrapper.children[0];
 	this.scrollerStyle = this.scroller.style;		// cache style for better performance
 	this.options = {
@@ -413,7 +441,7 @@ IScroll.prototype = {
 		if ( this.options.useTransition && this.isInTransition ) {
 			this.isInTransition = false;
 			pos = this.getComputedPosition();
-			this._translate(Math.round(pos.x), Math.round(pos.y));
+			this._translate(Math.round(pos.x), Math.round(pos.y));//n
 			this._execEvent('scrollEnd');
 		} else if ( !this.options.useTransition && this.isAnimating ) {
 			this.isAnimating = false;
@@ -477,7 +505,6 @@ IScroll.prototype = {
 				this.initiated = false;
 				return;
 			}
-
 			deltaY = 0;
 		} else if ( this.directionLocked == 'v' ) {
 			if ( this.options.eventPassthrough == 'horizontal' ) {
@@ -513,7 +540,7 @@ IScroll.prototype = {
 
 		this.moved = true;
 
-		this._translate(newX, newY);
+		this._translate(newX, newY);//n
 
 /* REPLACE START: _move */
 		if ( timestamp - this.startTime > 300 ) {
@@ -543,28 +570,43 @@ IScroll.prototype = {
 
 	
 
-	pullForMoreStateWF:0, /*WF: 0-normal ; 2-pullinghigh ; 3-loading ; 4-no more loaded.*/
-	loadingMoreFinishedWF:function(isOk , start , count , dataArray , newlimit, isAll )
+
+
+	pushState0:-1,
+	pullState0:-1,
+	pushState:0, // 0-pushing ; 1-release ; 2-loading ; 
+	pullState:0, // 0-pulling ; 1-release ; 2-loading ; 3-finished.
+	pushPullLoadingFinished:function(isOk  , isAll )
 	{
-		this.pullForMoreStateWF = 0 ;
+		if( this.pushState == 2 )
+		{
+			this.pushState = 0 ;
+			if( isOk )
+				this.pullState = 0 ;
+		}
+			
+		if( this.pullState == 2 )
+		{
+			this.pullState = 0 ;
+			if( isAll && isOk )
+				this.pullState = 3 ;
+		}
+		this.updateMaxScrollY() ;
 		if( isOk )
 		{
-			if( isAll )
-				this.pullForMoreStateWF = 4 ;
-			this.options.infiniteLimit = newlimit ;
-			this.updateCache(start,dataArray) ;
-			this.refresh() ;
+			this.reorderInfinite() ;
 		}
 	},
-	loadingMoreBeginWF:function(){
-		this.pullForMoreStateWF=3 ;
-		this.loadMoreElement.innerHTML=this.options.loadingForMoreHtmlWF ;
-			var temps = this.computeLoadingMoreStartIndexWF() ;
-			this.options.onNeedLoadMoreDataWF.call(this,this,temps) ;
-			/*
-			this.options.dataset.call(this, 
-				temps,
-				this.options.cacheSize) ;*/
+	pushLoadBegin:function(){
+		this.pushState=2 ;
+		//this.refresh() ;
+		this.options.delegate.onPushTriggered.call(this,this) ;
+	},
+	pullLoadBegin:function(){
+		this.pullState=2 ;
+		//this.refresh() ;
+		var temps = this.computeLoadingMoreStartIndex() ;
+		this.options.delegate.onPullTriggered.call(this,this,temps) ;
 	},
 	_end: function (e) {
 		if ( !this.enabled || utils.eventType[e.type] !== this.initiated ) {
@@ -590,15 +632,60 @@ IScroll.prototype = {
 		this.initiated = 0;
 		this.endTime = utils.getTime();
 
-		/* WF: needLoadMore *******************************************************/ 
-		/* WF: needLoadMore *******************************************************/ 
-		/* WF: needLoadMore *******************************************************/ 
-		/* WF: needLoadMore *******************************************************/ 
-		if( this.maxScrollY - this.y > this.options.loadMoreOffsetWF 
-				&& this.pullForMoreStateWF==2 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		/* : push pull trigger *******************************************************/ 
+		/* : push pull trigger  *******************************************************/ 
+		/* : push pull trigger  *******************************************************/ 
+		/* : push pull trigger  *******************************************************/ 
+		if( this.y > 0 &&
+			 	(this.y-this.maxScrollY>this.options.pushTriggerOffset)
+			 	&& this.pushState == 1 )
 		{
-			this.loadingMoreBeginWF() ;
+			console.log('trigger push') ;
+			this.pushLoadBegin() ;
 		}
+		else if( this.maxScrollY - this.y > this.options.pullTriggerOffset 
+							&& this.pullState==1 )
+		{
+			console.log('trigger pull') ;
+			this.pullLoadBegin() ;
+		}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -616,7 +703,8 @@ IScroll.prototype = {
 			return;
 		}
 
-		this.scrollTo(newX, newY);	// ensures that the last position is rounded
+		this.scrollTo(newX, newY);	// ensures that the last position is rounded 
+		//possible
 
 
 		// we scrolled less than 10 pixels
@@ -691,6 +779,16 @@ IScroll.prototype = {
 		}, this.options.resizePolling);
 	},
 
+	updateMaxScrollY:function() //wf add
+	{
+		var limit;
+		if ( this.options.infiniteElements ) {
+			limit = -this.options.delegate.getDataCount.call(this)
+							 * this.infiniteElementHeight + this.wrapperHeight;
+		}
+		this.maxScrollY = limit < 0 ? limit :-1 ;
+	},
+
 	resetPosition: function (time) {
 		var x = this.x,
 			y = this.y;
@@ -738,15 +836,21 @@ IScroll.prototype = {
 
 		this.maxScrollX		= this.wrapperWidth - this.scrollerWidth;
 		
+		/*
 		var limit;
 		if ( this.options.infiniteElements ) {
 			//this.options.infiniteLimit = this.options.infiniteLimit || Math.floor(2147483645 / this.infiniteElementHeight);
-			this.options.infiniteLimit = this.options.infiniteLimit || 0;//WF
-			limit = -this.options.infiniteLimit * this.infiniteElementHeight + this.wrapperHeight;
+			// rem this.options.infiniteLimit = this.options.infiniteLimit || 0;//
+			limit = -this.options.delegate.getDataCount.call(this)
+							 * this.infiniteElementHeight + this.wrapperHeight;
+			console.log('datacount,limit:'+
+				this.options.delegate.getDataCount.call(this)+','+limit) ;
 		}
-		this.maxScrollY		= limit !== undefined ? limit : this.wrapperHeight - this.scrollerHeight;
+		//wf rem this.maxScrollY	= limit !== undefined ? limit : this.wrapperHeight - this.scrollerHeight;
+		this.maxScrollY = limit < 0 ? limit :-1 ;*/
 		//this.maxScrollY -= this.infiniteElementHeight/2 ;
 /* REPLACE END: refresh */
+		this.updateMaxScrollY() ;
 
 		this.hasHorizontalScroll	= this.options.scrollX && this.maxScrollX < 0;
 		this.hasVerticalScroll		= this.options.scrollY && this.maxScrollY < 0;
@@ -828,7 +932,7 @@ IScroll.prototype = {
 		if ( !time || (this.options.useTransition && easing.style) ) {
 			this._transitionTimingFunction(easing.style);
 			this._transitionTime(time);
-			this._translate(x, y);
+			this._translate(x, y);//maybe
 		} else {
 			this._animate(x, y, time, easing.fn);
 		}
@@ -1060,7 +1164,7 @@ IScroll.prototype = {
 			newY = this.maxScrollY;
 		}
 
-		this.scrollTo(newX, newY, 0);
+		this.scrollTo(newX, newY, 0);//n
 
 		if ( this.options.probeType > 1 ) {
 			this._execEvent('scroll');
@@ -1285,7 +1389,7 @@ IScroll.prototype = {
 			pageY: y
 		};
 
-		this.scrollTo(posX, posY, time, easing);
+		this.scrollTo(posX, posY, time, easing);//n
 	},
 
 	next: function (time, easing) {
@@ -1368,7 +1472,7 @@ IScroll.prototype = {
 		if ( this.options.useTransition && this.isInTransition ) {
 			pos = this.getComputedPosition();
 
-			this._translate(Math.round(pos.x), Math.round(pos.y));
+			this._translate(Math.round(pos.x), Math.round(pos.y));//n
 			this.isInTransition = false;
 		}
 
@@ -1434,7 +1538,7 @@ IScroll.prototype = {
 			this.keyAcceleration = 0;
 		}
 
-		this.scrollTo(newX, newY, 0);
+		this.scrollTo(newX, newY, 0);//n
 
 		this.keyTime = now;
 	},
@@ -1453,7 +1557,7 @@ IScroll.prototype = {
 
 			if ( now >= destTime ) {
 				that.isAnimating = false;
-				that._translate(destX, destY);
+				that._translate(destX, destY);//maybe
 				
 				if ( !that.resetPosition(that.options.bounceTime) ) {
 					that._execEvent('scrollEnd');
@@ -1484,31 +1588,64 @@ IScroll.prototype = {
 	_initInfinite: function () {
 		var el = this.options.infiniteElements;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		// add:
+		var delegate = this.options.delegate ;
+		if( typeof(delegate)==='undefined' )
+		{
+			console.log('error: delegate is undefined.') ;
+		}
+		this.pushElement = this.wrapperParent.children[2] ;
+		if( this.pushElement == null  )
+			console.log('pushElement is not defined.') ;
+		this.pushElementHeight = this.pushElement.offsetHeight ;
+
 		this.infiniteElements = typeof el == 'string' ? document.querySelectorAll(el) : el;
 		this.infiniteLength = this.infiniteElements.length;
 		this.infiniteMaster = this.infiniteElements[0];
 		this.infiniteElementHeight = this.infiniteMaster.offsetHeight;
 		this.infiniteHeight = this.infiniteLength * this.infiniteElementHeight;
+		
+		this.pullElement = this.wrapperParent.children[1] ;
+		if( this.pullElement == null  )
+			console.log('pullElement is not defined.') ;
+		this.pullElementHeight = this.pullElement.offsetHeight ;
+		if( typeof(this.options.delegate.onData) ==="undefined" )
+			console.log('this.options.delegate.onData undefined.'); //function(index)
+		if( typeof(this.options.delegate.onPullTriggered) ==="undefined" )
+			console.log('this.options.delegate.onPullTriggered undefined.'); //function(index)
+		if( typeof(this.options.delegate.onPushTriggered) ==="undefined" )
+			console.log('this.options.delegate.onPushTriggered undefined.'); //function(index)
+
+		this.options.pullTriggerOffset = this.options.pullTriggerOffset || 60;
+		this.options.pullStartHtml = this.options.pullStartHtml || '上拉加载更多';
+		this.options.pullReleaseHtml = this.options.pullReleaseHtml || '释放以开始加载';
+		this.options.pullLoadingHtml = this.options.pullLoadingHtml || '加载中...';
+		this.options.pullNothingHtml = this.options.pullNothingHtml || '已全部加载';
+
+		this.options.pushTriggerOffset = this.options.pushTriggerOffset || 60;
+		this.options.pushStartHtml = this.options.pushStartHtml || '下拉更新';
+		this.options.pushReleaseHtml = this.options.pushReleaseHtml || '释放以开始更新';
+		this.options.pushLoadingHtml = this.options.pushLoadingHtml || '加载中...';
 
 
-
-
-
-
-
-
-
-
-
-
-		// WF add.
-		this.loadMoreElement = document.getElementById('loadMoreCell2') ;
-		if( this.loadMoreElement == null  )
-			console.log('loadMoreElement is not defined.') ;
-		if( typeof(this.options.onFillCellHtmlContentWF) ==="undefined" )
-			console.log('this.options.onFillCellHtmlContentWF undefined.'); //function(index)
-		if( typeof(this.options.onNeedLoadMoreDataWF) ==="undefined" )
-			console.log('this.options.onNeedLoadMoreDataWF undefined.'); //function(index)
+		// end.
 
 		
 
@@ -1517,19 +1654,20 @@ IScroll.prototype = {
 
 
 
-		this.options.loadMoreOffsetWF = this.options.loadMoreOffsetWF || 80;
-		this.options.pullForMoreHtmlWF = this.options.pullForMoreHtmlWF || '上拉加载更多';
-		this.options.releaseForMoreHtmlWF = this.options.releaseForMoreHtmlWF || '释放以开始加载';
-		this.options.loadingForMoreHtmlWF = this.options.loadingForMoreHtmlWF || '加载中...';
-		this.options.nothingForMoreHtmlWF = this.options.nothingForMoreHtmlWF || '已全部加载';
 
+
+
+
+
+
+		
 
 
 		this.options.cacheSize = this.options.cacheSize || 1000;
 		this.infiniteCacheBuffer = Math.round(this.options.cacheSize / 4);
 
 		//this.infiniteCache = {};
-		//this.options.dataset.call(this, 0, this.options.cacheSize); WF.
+		//this.options.dataset.call(this, 0, this.options.cacheSize); .
 
 		this.on('refresh', function () {
 			var elementsPerPage = Math.ceil(this.wrapperHeight / this.infiniteElementHeight);
@@ -1538,13 +1676,17 @@ IScroll.prototype = {
 		});
 
 		this.on('scroll', this.reorderInfinite);
+
+		this.refresh() ;//wf add
 	},
 
-	computeLoadingMoreStartIndexWF:function(){
+	computeLoadingMoreStartIndex:function(){
 		var temps = 0;
 		for(var i = 0 ; i<this.infiniteLength ; i++)
 		{
-			if(this.infiniteElements[i]._phase>temps && this.infiniteElements[i]._phase<this.options.infiniteLimit)
+			// rem if(this.infiniteElements[i]._phase>temps && this.infiniteElements[i]._phase<this.options.infiniteLimit)
+				// rem temps = this.infiniteElements[i]._phase ;
+			if(this.infiniteElements[i]._phase>temps && this.infiniteElements[i]._phase<this.options.delegate.getDataCount() )
 				temps = this.infiniteElements[i]._phase ;
 		}	
 		return temps ;
@@ -1554,97 +1696,173 @@ IScroll.prototype = {
 	reorderInfinite: function () {
 
 		var center = -this.y + this.wrapperHeight / 2;
-
 		var minorPhase = Math.max(Math.floor(-this.y / this.infiniteElementHeight) - this.infiniteUpperBufferSize, 0),
 			majorPhase = Math.floor(minorPhase / this.infiniteLength),
 			phase = minorPhase - majorPhase * this.infiniteLength; //超出上边缘的cell个数
-
-
 		var top = 0;
 		var i = 0; 
-		// var update = [];  //WF
-
-		//var cachePhase = Math.floor((minorPhase + this.infiniteLength / 2) / this.infiniteCacheBuffer);
 		var cachePhase = Math.floor(minorPhase / this.infiniteCacheBuffer);
-		var tempbtm = 0 ;
-
+		var lowestValid = 0 ;
+		var topestValid = 9999 ;
 		while ( i < this.infiniteLength ) {
-
 			top = i * this.infiniteElementHeight + majorPhase * this.infiniteHeight;
-
 			if ( phase > i ) {
-				top += this.infiniteElementHeight * this.infiniteLength;//将超出上边缘的cell top+整个模版表的长度,也就是把这个cell接到表底部。
+				top += this.infiniteElementHeight * this.infiniteLength;
+				//将超出上边缘的cell top+整个模版表的长度,也就是把这个cell接到表底部。
 			}
-
-			//WF
-			if ( this.infiniteElements[i]._phase < this.options.infiniteLimit )
-			{
-				var tbottom = top + this.infiniteElementHeight ;
-				if( tbottom > tempbtm )
-					tempbtm = tbottom ;
-			}
-			
-			
-
-			if ( this.infiniteElements[i]._top !== top ) {
-				var elPhase0 = this.infiniteElements[i]._phase ;//wf
-				this.infiniteElements[i]._phase = top / this.infiniteElementHeight;//重新确定el[i]在表中代表cell的序号。
-
-				if ( this.infiniteElements[i]._phase < this.options.infiniteLimit ) {//el在limit内，那么加上动画css，并押入update数组。
-					//console.log(this.infiniteElements[i]._phase+','+this.options.infiniteLimit) ;
+			var newElPhase = top / this.infiniteElementHeight ;
+			if ( this.infiniteElements[i]._top !== top ||
+					 (newElPhase>0 &&this.infiniteElements[i]._phase )) {
+				var elPhase0 = this.infiniteElements[i]._phase ;//
+				this.infiniteElements[i]._phase = top / this.infiniteElementHeight;
+				//重新确定el[i]在表中代表cell的序号。
+				if (  this.infiniteElements[i]._phase 
+							< this.options.delegate.getDataCount()  ) 
+				{//el在limit内，那么加上动画css，并押入update数组。
 					if( elPhase0 != this.infiniteElements[i]._phase )
 					{
-						//this.options.dataFiller.call(this, this.infiniteElements[i], null);
-						this.options.onFillCellHtmlContentWF.call(this,
+						this.options.delegate.onData.call(this,
 							this.infiniteElements[i],
 							this.infiniteElements[i]._phase) ;
 					}
-
 					this.infiniteElements[i]._top = top;
-
 					if ( this.options.infiniteUseTransform ) {
 						this.infiniteElements[i].style[utils.style.transform] = 'translate(0, ' + top + 'px)' + this.translateZ;
 					} else {
 						this.infiniteElements[i].style.top = top + 'px';
 					}
-					//update.push(this.infiniteElements[i]); //WF
+				}else
+				{
+					this.infiniteElements[i].innerHTML = '' ;
+					if(this.infiniteElements[i]._phase != -1) changed = true ;
+					this.infiniteElements[i]._phase = -1 ;
 				}
 			}
-
+			//compute topest and lowest position for push/pull-Elements.
+			if ( this.infiniteElements[i]._phase <
+					 this.options.delegate.getDataCount() )
+			{
+				if( top < topestValid )
+					topestValid = top ;
+				if( this.infiniteElements[i]._phase >= 0 )
+				{
+					if( top > lowestValid )
+						lowestValid = top ;
+				}
+			}
 			i++;
 		}
-
-		this.loadMoreElement.style.top = (tempbtm + this.y)+"px" ;
-		if(this.pullForMoreStateWF==3)
+		this.pushElement.style.top = (topestValid+this.y-this.pushElementHeight)+'px' ;
+		this.pullElement.style.top = (lowestValid+this.y+this.infiniteElementHeight)+"px" ;
+		if( this.pushState==0 && this.pullState==0 )//push start ;
 		{
-			this.loadMoreElement.innerHTML=this.options.loadingForMoreHtmlWF ;
-		}else if( this.pullForMoreStateWF==4 )
-		{
-			this.loadMoreElement.innerHTML=this.options.nothingForMoreHtmlWF ;
-		}else
-		{
-			if( this.maxScrollY - this.y > this.options.loadMoreOffsetWF )
+			if( this.initiated > 0 )
 			{
-				this.pullForMoreStateWF=2 ;
-				this.loadMoreElement.innerHTML=this.options.releaseForMoreHtmlWF ;
-			}else
-			{
-				this.pullForMoreStateWF=0 ;
-				this.loadMoreElement.innerHTML=this.options.pullForMoreHtmlWF ;
+				if( this.y > 0 && this.y > this.options.pushTriggerOffset )
+				{// trigger push
+					this.pushState = 1; 
+				}else if( this.maxScrollY - this.y > this.options.pullTriggerOffset
+								&& this.pullElementDisplayed==true )
+				{// trigger pull
+					this.pullState = 1 ;
+				}
 			}
 		}
-		
-		
-		/*
-		if ( this.cachePhase != cachePhase && (cachePhase === 0 || minorPhase - this.infiniteCacheBuffer > 0) ) {
-			 this.options.dataset.call(this, 
-				Math.max(cachePhase * this.infiniteCacheBuffer - this.infiniteCacheBuffer, 0),
-				this.options.cacheSize) ; 
-		}*/
+		else if( this.pushState==0 && this.pullState==3 )
+		{// trigger pull
+			if( this.y > 0 && this.initiated > 0 &&
+				( this.y > this.options.pushTriggerOffset) )
+			{// trigger push
+				this.pushState = 1; 
+			}
+		}
+		else if( this.pushState==1  )//push release
+		{
+			if(this.y>0 &&
+				 this.y <= this.options.pushTriggerOffset )
+			{// cancel trigger.
+				this.pushState = 0; 
+			}
+		}
+		else if( this.pullState==1 && this.pullElementDisplayed==true)//pull release
+		{
+			if( this.maxScrollY - this.y <= this.options.pullTriggerOffset )
+			{//cancel trigger.
+				this.pullState=0 ;
+			}
+		}
 
+		if( this.pushState!=this.pushState0 )
+		{//push pull state changed.
+			if( this.pushState==0 )//push start ;
+			{
+				this.pushElement.innerHTML=this.options.pushStartHtml ;
+			}
+			else if( this.pushState==1 )//push release
+			{
+				this.pushElement.innerHTML=this.options.pushReleaseHtml ;
+			}
+			else if( this.pushState==2 )//push loading
+			{
+				this.pushElement.innerHTML=this.options.pushLoadingHtml ;
+			}
+			this.pushState0 = this.pushState ;
+		}
+		if( this.pullState != this.pullState0 )
+		{
+			if( this.pullState==0 )//pull start
+			{
+				this.pullElement.innerHTML=this.options.pullStartHtml ;
+			}
+			else if( this.pullState==1 )//pull release
+			{
+				this.pullElement.innerHTML=this.options.pullReleaseHtml ;
+			}
+			else if( this.pullState==2 )//pull loading
+			{
+				this.pullElement.innerHTML=this.options.pullLoadingHtml ;
+			}
+			else if( this.pullState==3 )//pull nothing
+			{
+				this.pullElement.innerHTML=this.options.pullNothingHtml ;
+			}
+			this.pullState0 = this.pullState ;
+		}
 		this.cachePhase = cachePhase;
-		//this.updateContent(update);
 	},
+	pullElementDisplayed:true ,
+	isPullElementDisplay:function()
+	{
+		return this.pullElementDisplayed ;
+	},
+	setPullElementDisplay:function(bShow)
+	{
+		if( bShow != this.pullElementDisplayed )
+		{
+			this.pullState = 0 ;
+			this.pullElementDisplayed = bShow ;
+			if( bShow )
+			{
+				this.pullElement.style.display = 'block' ;
+			}else
+			{
+				this.pullElement.style.display = 'none' ;
+			}
+		}
+	},
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1670,7 +1888,7 @@ IScroll.prototype = {
 
 		for ( var i = 0, l = els.length; i < l; i++ ) {
 			//this.options.dataFiller.call(this, els[i], this.infiniteCache[els[i]._phase]);
-			this.options.onFillCellHtmlContentWF.call(this,els[i],els[i]._phase) ;
+			this.options.delegate.onData.call(this,els[i],els[i]._phase) ;
 		}
 	},
 

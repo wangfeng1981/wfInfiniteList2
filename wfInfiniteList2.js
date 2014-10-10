@@ -3,40 +3,47 @@
       cell element should be half of the cacheSize.
       e.g. 15 child elements and cacheSize=30 .
 
-    <wf-infinite-list2 > must have following attrs:
+    <wf-infinite-list2 > 
+    must have following attrs:
       inf-element      = string:'.someCell'
       delegate         = object:delegateObject !note1
       history-limit    = int: 0
       history-position = int: 0
-      load-more-offset = int: 80 , a gap from bottom to trigger load-more.
       page-size        = int: 30 , number of recs in each load.
-      wrapperId        = wrapperXXXX , wrapperId for <wf-infinite-list2> elementId.
+      wrapper-parent-id        = wrapperXXXX , wrapperId for <wf-infinite-list2> elementId.
                           this string value should be unique in DOM 
                           and must be the same as this elementId.
                           e.g.  <wf-infinite-list2 id='w101' ... wrapper-id='w101'>  
+    
     optional attrs:
-      pulling-html     = 'pull to load more'
-      release-html     = 'release for loading'
-      loading-html     = 'loading...'
-      nothing-html     = 'no more for loading' 
+      push-trigger-offset = 60
+      push-start-html     = 'push to update'
+      push-release-html   = 'release for update'
+      push-loading-html   = 'updating'
+
+      pull-trigger-offset = 60
+      pull-start-html     = 'pull to load more'
+      pull-release-html     = 'release for loading'
+      pull-loading-html     = 'loading...'
+      pull-nothing-html     = 'no more for loading' 
 
 
 
     !note1:
-      delegate must have these 3 methods:
-        onScrollerReady(scrollerRef) 
-                  : on iscroll initialized.
-                    user can call scroller.loadingMoreBeginWF()
-                    to kick first loading action.
-        onFillCellHtmlContentWF(element,index)
-        onNeedLoadMoreDataWF(scrollerRef,index)
+      delegate must have :
+        delegate.onData(el,index)
+        delegate.onPullTriggered(sref,start0)
+        delegate.onPushTriggered(sref)
+        delegate.getDataCount()
+        delegate.onScrollerReady(sref) 
+
 
 
     !note2:
-      After onNeedLoadMore finished, following method must be called 
-        to make scroller know more data can be displayed.
-          scrollerRef.loadingMoreFinishedWF:
-            function(isOk , start , count , dataArray , newlimit, isAll )
+      After onPullTriggered/onPushTriggered
+      finished, following method must be called 
+      to make scroller know more data can be displayed.
+        scrollerRef.pushPullLoadingFinished:function(isOk, isAll )
 
 */
 angular.module('Wangf',['ngAnimate'])
@@ -49,55 +56,60 @@ angular.module('Wangf',['ngAnimate'])
               "bottom:0px;background-color:white;overflow:hidden;'"+
               " ng-transclude>"+
               "</div>" +
-              " <div id='loadMoreCell2' "+
+              " <div "+
               " style='position:absolute;top:9990px;left:0px;width:100%;height:44px;"+
               " text-align:center;color:#696969;padding-top:20px'"+
-              ">上拉加载更多</div>" ,
+              ">上拉加载更多</div>" +
+              " <div "+
+              " style='position:absolute;top:9990px;left:0px;width:100%;height:44px;"+
+              " text-align:center;color:#696969;padding-top:20px'"+
+              ">下拉更新</div>",
       transclude:true ,
-      scope:{infElement:'@',delegate:'=',
-              loadMoreOffset:'@',pageSize:'@',
+      scope:{
+              infElement:'@',
+              delegate:'=',
               historyLimit:'@',
               historyPosition:'@',
-              wrapperId:'@',
-              pullingHtml:'@',
-              releaseHtml:'@',
-              loadingHtml:'@',
-              nothingHtml:'@'
+              pageSize:'@',
+              wrapperParentId:'@',
+
+              pushTriggerOffset:'@',
+              pushStartHtml:'@',
+              pushReleaseHtml:'@',
+              pushLoadingHtml:'@',
+              pullTriggerOffset:'@',
+              pullStartHtml:'@',
+              pullReleaseHtml:'@',
+              pullLoadingHtml:'@',
+              pullNothingHtml:'@'
             },
+
+
       link: function(scope , elem , attrs ){
 
           scope.pageSize = parseInt(scope.pageSize) ;
-          var tchild1= document.getElementById(scope.wrapperId).children[0];
-
-          //init iscroll5. "#"+scope.wrapperId
-          scope.scroller = new IScroll(tchild1 ,{
+         //init iscroll5. "#"+scope.wrapperId
+          scope.scroller = new IScroll({
             tap:true ,
-            infiniteLimit: scope.historyLimit,
+            wrapperParentId:scope.wrapperParentId,
+            delegate:scope.delegate , 
+            infiniteLimit:scope.historyLimit,
             historyPosition: scope.historyPosition,
             infiniteElements:scope.infElement,
-            onFillCellHtmlContentWF:scope.delegate.onFillCellHtmlContentWF,
-            onNeedLoadMoreDataWF:   scope.delegate.onNeedLoadMoreDataWF,
-            loadMoreOffsetWF: scope.loadMoreOffset,
             cacheSize: scope.pageSize , 
-            pullForMoreHtmlWF:scope.pullingHtml,
-            releaseForMoreHtmlWF:scope.releaseHtml,
-            loadingForMoreHtmlWF:scope.loadingHtml,
-            nothingForMoreHtmlWF:scope.nothingHtml
+            pushTriggerOffset:scope.pushTriggerOffset,
+            pushStartHtml:scope.pushStartHtml,
+            pushReleaseHtml:scope.pushReleaseHtml,
+            pushLoadingHtml:scope.pushLoadingHtml,
+            pullTriggerOffset:scope.pullTriggerOffset,
+            pullStartHtml:scope.pullStartHtml,
+            pullReleaseHtml:scope.pullReleaseHtml,
+            pullLoadingHtml:scope.pullLoadingHtml,
+            pullNothingHtml:scope.pullNothingHtml
           });
 
-          if( scope.historyLimit > 0 )
-          {
-            //scroll to last position.
-            scope.scroller.scrollTo(0,parseInt(scope.historyPosition),0) ;
-            scope.scroller.reorderInfinite() ;
-          }else
-          {
-            scope.delegate.onScrollerReady(scope.scroller) ;
-            //first load.
-            /*$timeout(function(){
-              scope.scroller.loadingMoreBeginWF() ;
-            },200) ;*/
-          }
+
+          scope.delegate.onScrollerReady(scope.scroller) ; 
       } 
     } ;
 }) ;
