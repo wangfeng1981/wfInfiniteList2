@@ -6,7 +6,7 @@
     <wf-infinite-list2 > 
     must have following attrs:
       id               = unique string id.
-      inf-element      = string:'.someCell'
+      inf-element      = string:'.someCell' Note3!
       delegate         = object:delegateObject !note1
       page-size        = int: 30 , number of recs in each load.
       wrapper-parent-id        = wrapperXXXX , wrapperId for <wf-infinite-list2> elementId.
@@ -30,11 +30,33 @@
 
     !note1:
       delegate must have :
-        delegate.onData(el,index)
-        delegate.onPullTriggered(sref,start0)
-        delegate.onPushTriggered(sref)
-        delegate.getDataCount()
-        delegate.onScrollerReady(sref) 
+        delegate.onData=function(el,index)
+        {
+          el.innerHTML = 'cell'+index ;
+        };
+        delegate.onPullTriggered=function(sref,start0)
+        {
+          //staff...
+
+          // onok: sref.pushPullLoadingFinished(isOk, isAll );
+        };
+        delegate.onPushTriggered=function(sref)
+        {
+          //staff...
+
+          // onok: sref.pushPullLoadingFinished(isOk, isAll );
+        };
+        delegate.getDataCount=function()
+        {
+          return 0 ;
+        } ;
+        delegate.onScrollerReady=function(sref)
+        {
+          //the first push or scroll to history position.
+          sref.pushLoadBegin() ;
+          sref.setPullElementDisplay(false) ;
+          //history: sref.scrollTo(x,y) ;
+        } ; 
 
 
 
@@ -42,20 +64,31 @@
       After onPullTriggered/onPushTriggered
       finished, following method must be called 
       to make scroller know more data can be displayed.
-        scrollerRef.pushPullLoadingFinished:function(isOk, isAll )
+        sref.pushPullLoadingFinished:function(isOk, isAll )
 
 
-    ScrollerRef useful functions:
-      ScrollerRef.setPullElementDisplay(boolValue) ;
-      boolValue = ScrollerRef.isPullElementDisplay() ;
-      ScrollerRef.pushLoadBegin() ;
-      ScrollerRef.pullLoadBegin() ;
+    sref useful functions:
+      sref.setPullElementDisplay(boolValue) ;
+      boolValue = sref.isPullElementDisplay() ;
+      sref.pushLoadBegin() ;
+      sref.pullLoadBegin() ;
       sref.scrollTo(x,y) 
       sref.refresh() ;
+      sref.reorderInfinite() ;
 
     InfiniteElement useful properties:
       element._phase : index in datasource.
       element._top   : top position in scroller.
+
+
+    !note3
+    inf-element css style must like:
+    .xxxCell {
+      position:absolute;
+      top:0px;
+      left:0px;
+      ...
+    }
 
 */
 angular.module('Wangf',['ngAnimate'])
